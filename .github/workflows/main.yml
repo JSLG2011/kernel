@@ -1,0 +1,57 @@
+name: Android Kernel Builder
+
+on:
+  workflow_dispatch: # Permite ejecutar el flujo manualmente desde la pestaña Actions
+  push:
+    branches:
+      - main # Cambia 'main' por el nombre de tu rama si es diferente (ej. '13.0' o 'stock')
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout del código fuente
+      uses: actions/checkout@v4
+
+    - name: Instalar dependencias del sistema
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          git bc bison flex libssl-dev make libc6-dev libncurses5-dev \
+          crossbuild-essential-arm64 crossbuild-essential-armhf \
+          zip unzip libelf-dev clang lld
+
+    - name: Descargar Toolchain (Proton Clang / Android Clang)
+      run: |
+        mkdir -p $GITHUB_WORKSPACE/toolchains
+        cd $GITHUB_WORKSPACE/toolchains
+        # Clona un entorno Clang optimizado para Android
+        git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
+
+    - name: Configurar Variables de Compilación
+      run: |
+        echo "ARCH=arm64" >> $GITHUB_ENV
+        echo "SUBARCH=arm64" >> $GITHUB_ENV
+        echo "PATH=$GITHUB_WORKSPACE/toolchains/clang/bin:$PATH" >> $GITHUB_ENV
+        # Nombre de tu defconfig (REEMPLAZA 'a32_defconfig' POR EL TUYO EXACTO)
+        echo "DEFCONFIG=a32_defconfig" >> $GITHUB_ENV
+
+    - name: Generar la configuración (make defconfig)
+      run: |
+        make O=out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- $DEFCONFIG
+
+    - name: Compilar el Kernel (make)
+      run: |
+        make -j$(nproc --all) O=out \
+          ARCH=arm64 \
+          CC=clang \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          CROSS_COMPILE=aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+
+    - name: Subir Artifact (Descargar el .zip listo)
+      uses: actions/upload-artifact@v4
+      with:
+        name: Kernel
+        path: Image

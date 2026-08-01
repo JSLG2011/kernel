@@ -1,0 +1,48 @@
+# ==========================================
+# Archivos de salida de compilación (Build Out)
+# ==========================================
+out/
+build/
+*.o
+*.o.d
+*.cmd
+*.ko
+*.mod.c
+*.mod
+*.a
+*.s
+
+# ==========================================
+# Configuración y Temporales de Linux Kernel
+# ==========================================
+.config
+.config.old
+.config.override
+.tmp_versions/
+.tmp_*
+Module.symvers
+modules.order
+Module.markers
+System.map
+vmlinux
+vmlinux.o
+
+# ==========================================
+# Imágenes finalizadas (se generan en el build)
+# ==========================================
+arch/arm64/boot/Image
+arch/arm64/boot/Image.gz
+arch/arm64/boot/Image.gz-dtb
+arch/arm64/boot/dtb
+arch/arm64/boot/dtbo.img
+
+# ==========================================
+# Basura del Sistema Operativo y Editores
+# ==========================================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/

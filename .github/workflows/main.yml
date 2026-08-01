@@ -1,43 +1,42 @@
-name: Android Kernel Builder
+name: "Android Kernel Builder (GCC)"
 
 on:
-  workflow_dispatch: # Permite ejecutar el flujo manualmente desde la pestaña Actions
+  workflow_dispatch:
   push:
     branches:
-      - main # Cambia 'main' por el nombre de tu rama si es diferente (ej. '13.0' o 'stock')
+      - main
 
 jobs:
   build-kernel:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout del código fuente
+    - name: "Checkout del codigo fuente"
       uses: actions/checkout@v4
 
-    - name: Instalar dependencias del sistema
+    - name: "Instalar dependencias del sistema"
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           git bc bison flex libssl-dev make libc6-dev libncurses5-dev \
           crossbuild-essential-arm64 crossbuild-essential-armhf \
-          zip unzip libelf-dev clang lld
+          zip unzip libelf-dev gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
-    - name: "Descargar Toolchain (AOSP Clang r383902)"
+    - name: "Descargar Toolchain GCC de AOSP"
       run: |
-        mkdir -p $GITHUB_WORKSPACE/toolchains/clang
-        cd $GITHUB_WORKSPACE/toolchains/clang
-        wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android11-release/clang-r383902.tar.gz
-        tar -xzf clang-r383902.tar.gz
-        rm clang-r383902.tar.gz
+        mkdir -p $GITHUB_WORKSPACE/toolchains
+        cd $GITHUB_WORKSPACE/toolchains
+        # Clonamos el GCC 4.9 oficial de Google para Android ARM64
+        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 gcc64
+        git clone --depth=1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9 gcc32
 
-    - name: Configurar Variables de Compilación
+    - name: "Configurar Variables de Compilacion"
       run: |
         echo "ARCH=arm64" >> $GITHUB_ENV
         echo "SUBARCH=arm64" >> $GITHUB_ENV
-        echo "PATH=$GITHUB_WORKSPACE/toolchains/clang/bin:$PATH" >> $GITHUB_ENV
-        # Nombre de tu defconfig (REEMPLAZA 'a32_defconfig' POR EL TUYO EXACTO)
+        echo "PATH=$GITHUB_WORKSPACE/toolchains/gcc64/bin:$GITHUB_WORKSPACE/toolchains/gcc32/bin:$PATH" >> $GITHUB_ENV
         echo "DEFCONFIG=a32_defconfig" >> $GITHUB_ENV
-        
+
     - name: "Dar permisos de ejecucion a scripts"
       run: |
         chmod -R +x scripts/
@@ -46,54 +45,33 @@ jobs:
     - name: "Generar la configuracion (make defconfig)"
       run: |
         make ARCH=arm64 \
-          CC=clang \
-          HOSTCC=gcc \
-          HOSTCXX=g++ \
-          HOSTLD=ld \
-          CLANG_TRIPLE=aarch64-linux-gnu- \
-          CROSS_COMPILE=aarch64-linux-gnu- \
-          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+          CROSS_COMPILE=aarch64-linux-android- \
+          CROSS_COMPILE_ARM32=arm-linux-androideabi- \
           $DEFCONFIG
-
-    - name: "Preparar cabeceras y VDSO"
-      run: |
-        # 1. Prepara las estructuras basicas del kernel
-        make ARCH=arm64 \
-          CC=clang \
-          HOSTCC=gcc \
-          HOSTCXX=g++ \
-          HOSTLD=ld \
-          CLANG_TRIPLE=aarch64-linux-gnu- \
-          CROSS_COMPILE=aarch64-linux-gnu- \
-          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-          prepare modules_prepare
-
-        # 2. Fuerza la compilacion especifica del directorio vdso
-        make ARCH=arm64 \
-          CC=clang \
-          HOSTCC=gcc \
-          HOSTCXX=g++ \
-          HOSTLD=ld \
-          LD=aarch64-linux-gnu-ld \
-          CLANG_TRIPLE=aarch64-linux-gnu- \
-          CROSS_COMPILE=aarch64-linux-gnu- \
-          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-          arch/arm64/kernel/vdso/vdso.lds
 
     - name: "Compilar el Kernel (make)"
       run: |
         make -j$(nproc --all) ARCH=arm64 \
-          CC=clang \
-          HOSTCC=gcc \
-          HOSTCXX=g++ \
-          HOSTLD=ld \
-          LD=aarch64-linux-gnu-ld \
-          CLANG_TRIPLE=aarch64-linux-gnu- \
-          CROSS_COMPILE=aarch64-linux-gnu- \
-          CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-          
-    - name: Subir Artifact (Descargar el .zip listo)
+          CROSS_COMPILE=aarch64-linux-android- \
+          CROSS_COMPILE_ARM32=arm-linux-androideabi-
+
+    - name: "Empaquetar con AnyKernel3"
+      if: success()
+      run: |
+        git clone --depth=1 https://github.com/osm0sis/AnyKernel3.git AnyKernel3
+        if [ -f arch/arm64/boot/Image.gz-dtb ]; then
+          cp arch/arm64/boot/Image.gz-dtb AnyKernel3/
+        elif [ -f arch/arm64/boot/Image.gz ]; then
+          cp arch/arm64/boot/Image.gz AnyKernel3/
+        elif [ -f arch/arm64/boot/Image ]; then
+          cp arch/arm64/boot/Image AnyKernel3/
+        fi
+        
+        cd AnyKernel3
+        zip -r9 ../Kernel_A32_Signed.zip * -x .git README.md
+
+    - name: "Subir Artifact (Descargar el .zip listo)"
       uses: actions/upload-artifact@v4
       with:
-        name: Kernel
-        path: Image
+        name: Kernel-A32-Flashable
+        path: Kernel_A32_Signed.zip

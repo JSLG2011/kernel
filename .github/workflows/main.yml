@@ -22,12 +22,13 @@ jobs:
           crossbuild-essential-arm64 crossbuild-essential-armhf \
           zip unzip libelf-dev clang lld
 
-    - name: Descargar Toolchain (Proton Clang / Android Clang)
+    - name: "Descargar Toolchain (AOSP Clang r383902)"
       run: |
-        mkdir -p $GITHUB_WORKSPACE/toolchains
-        cd $GITHUB_WORKSPACE/toolchains
-        # Clona un entorno Clang optimizado para Android
-        git clone --depth=1 https://github.com/kdrag0n/proton-clang clang
+        mkdir -p $GITHUB_WORKSPACE/toolchains/clang
+        cd $GITHUB_WORKSPACE/toolchains/clang
+        wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android11-release/clang-r383902.tar.gz
+        tar -xzf clang-r383902.tar.gz
+        rm clang-r383902.tar.gz
 
     - name: Configurar Variables de Compilación
       run: |

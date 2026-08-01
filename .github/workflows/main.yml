@@ -55,8 +55,9 @@ jobs:
           CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
           $DEFCONFIG
 
-    - name: "Preparar VDSO (Fix para vdso.lds)"
+    - name: "Preparar cabeceras y VDSO"
       run: |
+        # 1. Prepara las estructuras basicas del kernel
         make ARCH=arm64 \
           CC=clang \
           HOSTCC=gcc \
@@ -65,7 +66,19 @@ jobs:
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=aarch64-linux-gnu- \
           CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-          arch/arm64/kernel/vdso/
+          prepare modules_prepare
+
+        # 2. Fuerza la compilacion especifica del directorio vdso
+        make ARCH=arm64 \
+          CC=clang \
+          HOSTCC=gcc \
+          HOSTCXX=g++ \
+          HOSTLD=ld \
+          LD=aarch64-linux-gnu-ld \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          CROSS_COMPILE=aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+          arch/arm64/kernel/vdso/vdso.lds
 
     - name: "Compilar el Kernel (make)"
       run: |
@@ -74,6 +87,7 @@ jobs:
           HOSTCC=gcc \
           HOSTCXX=g++ \
           HOSTLD=ld \
+          LD=aarch64-linux-gnu-ld \
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=aarch64-linux-gnu- \
           CROSS_COMPILE_ARM32=arm-linux-gnueabi-

@@ -45,22 +45,35 @@ jobs:
 
     - name: "Generar la configuracion (make defconfig)"
       run: |
-        make O=out ARCH=arm64 \
+        make ARCH=arm64 \
           CC=clang \
           HOSTCC=gcc \
           HOSTCXX=g++ \
+          HOSTLD=ld \
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=aarch64-linux-gnu- \
           CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
           $DEFCONFIG
 
-    - name: "Compilar el Kernel (make)"
+    - name: "Preparar VDSO (Fix para vdso.lds)"
       run: |
-        make -j$(nproc --all) O=out \
-          ARCH=arm64 \
+        make ARCH=arm64 \
           CC=clang \
           HOSTCC=gcc \
           HOSTCXX=g++ \
+          HOSTLD=ld \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          CROSS_COMPILE=aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+          arch/arm64/kernel/vdso/
+
+    - name: "Compilar el Kernel (make)"
+      run: |
+        make -j$(nproc --all) ARCH=arm64 \
+          CC=clang \
+          HOSTCC=gcc \
+          HOSTCXX=g++ \
+          HOSTLD=ld \
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=aarch64-linux-gnu- \
           CROSS_COMPILE_ARM32=arm-linux-gnueabi-

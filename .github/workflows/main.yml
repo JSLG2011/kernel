@@ -36,20 +36,34 @@ jobs:
         echo "PATH=$GITHUB_WORKSPACE/toolchains/clang/bin:$PATH" >> $GITHUB_ENV
         # Nombre de tu defconfig (REEMPLAZA 'a32_defconfig' POR EL TUYO EXACTO)
         echo "DEFCONFIG=a32_defconfig" >> $GITHUB_ENV
-
-    - name: Generar la configuración (make defconfig)
+        
+    - name: "Dar permisos de ejecucion a scripts"
       run: |
-        make O=out ARCH=arm64 CC=clang CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- $DEFCONFIG
+        chmod -R +x scripts/
+        chmod +x arch/arm64/kernel/vdso/gen_vdso_offsets.sh || true
 
-    - name: Compilar el Kernel (make)
+    - name: "Generar la configuracion (make defconfig)"
+      run: |
+        make O=out ARCH=arm64 \
+          CC=clang \
+          HOSTCC=gcc \
+          HOSTCXX=g++ \
+          CLANG_TRIPLE=aarch64-linux-gnu- \
+          CROSS_COMPILE=aarch64-linux-gnu- \
+          CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+          $DEFCONFIG
+
+    - name: "Compilar el Kernel (make)"
       run: |
         make -j$(nproc --all) O=out \
           ARCH=arm64 \
           CC=clang \
+          HOSTCC=gcc \
+          HOSTCXX=g++ \
           CLANG_TRIPLE=aarch64-linux-gnu- \
           CROSS_COMPILE=aarch64-linux-gnu- \
           CROSS_COMPILE_ARM32=arm-linux-gnueabi-
-
+          
     - name: Subir Artifact (Descargar el .zip listo)
       uses: actions/upload-artifact@v4
       with:
